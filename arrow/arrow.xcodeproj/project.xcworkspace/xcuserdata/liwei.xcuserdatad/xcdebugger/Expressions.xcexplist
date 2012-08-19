@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "HotImage::main(float):taskNeverSeen.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "v[0]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "TaskGameBeep::vOnTouchEvent(std::vector&lt;lw::TouchEvent, std::allocator&lt;lw::TouchEvent&gt; &gt;&amp;):taskGameBeep.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "gestures[0]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "Level::getValue(int, int):level.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "((char*)(&amp;vv))[3]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "lw::FontRes::FontRes(char const*, bool&amp;):lwFont.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "wc">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "lw::getLanguage():lwLocalization.mm">
+         <PersistentStrings>
+            <PersistentString
+               value = "_currLan">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "GSCollection::vStart():gsCollection.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "gc1-&gt;files[3]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "GdLevel::GdLevel():gameData.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "g_pSaveDb">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "lw::Font::update():lwFont.cpp">
+      </ContextState>
+      <ContextState
+         contextName = "lw::UIButton::vGesture(lw::Gesture const&amp;):lwUIButton.cpp">
+      </ContextState>
+      <ContextState
+         contextName = "XX::XX():save.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "_levelMap">
+            </PersistentString>
+            <PersistentString
+               value = "_levelMap[2]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "TaskCollection::vMain(float):taskCollection.cpp">
+         <PersistentStrings>
+            <PersistentString
+               value = "_playingMouths-&gt;size();">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "TouchPoint::draw(float):taskNeverSeen.cpp">
+      </ContextState>
+      <ContextState
+         contextName = "HotImage::addPoint(float, float):taskNeverSeen.cpp">
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>

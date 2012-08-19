@@ -1,0 +1,467 @@
+global proc string getObjectShapeNode ( string $object ) {
+  string $shapes[] = `listRelatives -children -shapes $object`;
+  return $shapes[0];
+}
+
+global proc lwAddAlphaChannel(string $polyName, string $fileName){
+	if ( `attributeExists "alpha" $polyName` ){
+		return;
+	}
+	addAttr -ln "alpha" -at double  -min 0 -max 1 -dv 1 $polyName;
+	setAttr -e -keyable true ($polyName+".alpha");
+	setAttr ($polyName+".alpha") 0;
+	setAttr ($fileName+".alphaGain") 0;
+	setDrivenKeyframe -currentDriver ($polyName+".alpha") ($fileName+".alphaGain");
+	setAttr ($polyName+".alpha") 1;
+	setAttr ($fileName+".alphaGain") 1;
+	setDrivenKeyframe -currentDriver ($polyName+".alpha") ($fileName+".alphaGain");
+}
+
+global proc lwCreateSpriteFromFileNode()
+{
+	string $files[] = `ls -sl`;
+	string $file;
+	for ($file in $files){
+		if (!`attributeExists "outSizeX" $file`) {
+			warning "please select file node(s)";
+			continue;
+		}
+		float $x = `getAttr ($file+".outSizeX")`;
+		float $y = `getAttr ($file+".outSizeY")`;
+		string $polyName[] = `polyPlane -w $x -h $y -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 1 -name ($file+"_p")`;
+		if( !`objExists ($file+"_sd")` ){
+			shadingNode -asShader lambert -name ($file+"_sd");
+			sets -renderable true -noSurfaceShader true -empty -name ($file+"_sg");
+			connectAttr -f ($file+"_sd.outColor") ($file+"_sg.surfaceShader");
+			connectAttr -f ($file+".outColor") ($file+"_sd.color");
+			connectAttr -f ($file+".outTransparency") ($file+"_sd.transparency");
+		}
+		select -r $polyName[0];
+		hyperShade -assign ($file+"_sd");
+		
+		lwAddAlphaChannel($polyName[0], $file);
+	}
+};
+
+global proc lwShowIphoneBoundary()
+{
+	if ( `objExists iphoneBoundary` ){
+		delete "iphoneBoundary";
+	}
+	string $objs[] = `ls -sl`;
+	polyPlane -w 480 -h 320 -sx 1 -sy 1 -ax 0 0 1 -ch 1 -name "iphoneBoundary";
+	setAttr "iphoneBoundary.template" 1;
+	select $objs;
+}
+
+global proc lwHideIphoneBoundary()
+{
+	if ( `objExists iphoneBoundary` ){
+		delete "iphoneBoundary";
+	}
+}
+
+global proc lwResizeSprite()
+{
+	string $objs[] = `ls -sl`;
+	string $obj;
+	string $fileName = "error";
+	for ($obj in $objs){
+		if ( `nodeType $obj` == "transform" ){
+			string $shape = getObjectShapeNode($obj);
+			string $sg[] = `listConnections -shapes on -type shadingEngine $shape`;
+			string $lambert[] = `listConnections -source true -destination false -exactType true -type "lambert" $sg[0]`;
+			string $fileNames[] = `listConnections -source true -destination false -type file $lambert[0]`;
+			string $fileName = $fileNames[0];
+			
+			float $fileW = `getAttr ($fileName+".outSizeX")`;
+			float $fileH = `getAttr ($fileName+".outSizeY")`;
+			int $numVertex[] = `polyEvaluate -vertex $obj`;
+			int $i;
+			float $dPos[3];
+			$dPos[0] = 0;
+			$dPos[1] = 0;
+			$dPos[2] = 0;
+			for ( $i = 0; $i < $numVertex[0]; ++$i ){
+				float $uv[] = `getAttr ($obj+".uv["+ $i +"]")`;
+				float $pos[] = `pointPosition -w ($obj+".vtx["+ $i +"]")`;
+				select -r ($obj+".vtx["+ $i +"]");
+				float $x = $uv[0]*$fileW;
+				float $y = $uv[1]*$fileH;
+				move ($x) ($y) 0;
+				$dPos[0] += $x - $pos[0];
+				$dPos[1] += $y - $pos[1];
+				$dPos[2] += $pos[2];
+			}
+			select -r $obj;
+			move -r (-$dPos[0]/$numVertex[0]) (-$dPos[1]/$numVertex[0]) ($dPos[2]/$numVertex[0]);
+			
+			CenterPivot;
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -jointOrient;
+			
+			lwAddAlphaChannel($obj, $fileName);
+		}
+	}
+}
+
+global proc lwAdjPersp(){
+	setAttr "perspShape.nearClipPlane" 10;
+	setAttr "perspShape.farClipPlane" 10000;
+}
+
+global proc int lwIsAnimationExists(string $node, string $attr){
+	if (`attributeExists $attr $node`){
+		string $con[] = `listConnections -d off -s on ($node+"."+$attr)`;
+		if ( size($con) != 0 ){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+//export ext
+//	int frameCount
+//	for each node{
+//		int nodeNameLength
+//  	string nodeName
+//		for each channel{
+//			int channelType;
+//			int linerOrStep;
+//			if ( liner interpolate channel ){
+//				double frames[frameCount]
+//			}else{ //step interpolate channel
+//				for each key frame{
+//					int key;
+//					double value;
+//				}
+//				int key = -1;
+//			}
+//			int channelType = -1;
+//		}
+//	}
+//}
+
+global proc lwWriteLinerChannel(int $fid, string $nodeName, string $channelName, int $channelType, int $frameMin, int $frameMax){
+	if ( lwIsAnimationExists($nodeName, $channelName) ){
+		fwrite $fid $channelType;
+		fwrite $fid 0;
+		int $i;
+		for ( $i = $frameMin; $i <= $frameMax; ++$i ){
+			float $value = `getAttr -time $i ($nodeName+"."+$channelName)`;
+			fwrite $fid $value;	
+		}
+	}
+}
+
+global proc lwWriteStepChannel(int $fid, string $nodeName, string $channelName, int $channelType, int $frameMin, int $frameMax){
+	if ( lwIsAnimationExists($nodeName, $channelName) ){
+		fwrite $fid $channelType;
+		fwrite $fid 1;
+		int $i;
+		float $value = `getAttr -time $frameMin ($nodeName+"."+$channelName)`;
+		fwrite $fid $frameMin;
+		fwrite $fid $value;
+		string $nodeAttrName = $nodeName+"."+$channelName;
+		for ( $i = $frameMin+1; $i <= $frameMax; ++$i ){
+			print($nodeName+" "+$channelName+" frame"+$i+"\n");
+			float $v = `getAttr -time $i $nodeAttrName`;
+			if ( $value != $v ){
+				$value = $v;
+				fwrite $fid $i;	
+				fwrite $fid $value;	
+			}
+		}
+		fwrite $fid -1;
+	}
+}
+
+global proc lwExport(){
+	int $LW_ALPHA_CHANNEL = 0;
+	int $LW_VISIBILITY_CHANNEL = 1;
+	int $LW_OFFSET_U_CHANNEL = 2;
+	int $LW_OFFSET_V_CHANNEL = 3;
+
+	string $filepath = `fileDialog -mode 1 -directoryMask "*.pod"`;
+	if ( size($filepath) == 0 ){
+		return;
+	}
+	string $option = "bFixedPoint=0 bFlipTextureV=0 bIndexed=1 bInterleaved=0 bSortVtx=0 bTangentSpace=0 cS=2 dwBoneLimit=9 ePrimType=0 eTriSort=0 exportControllers=1 exportGeom=1 exportMappingChannel=1 exportMaterials=1 exportNormals=0 exportSkin=1 exportSplines=1 exportVertexColor=0 psVcOptUVW0.eType=1 psVcOptUVW0.nEnable=135 psVcOptUVW1.eType=1 psVcOptUVW1.nEnable=135 psVcOptUVW2.eType=1 psVcOptUVW2.nEnable=135 psVcOptUVW3.eType=1 psVcOptUVW3.nEnable=135 psVcOptUVW4.eType=1 psVcOptUVW4.nEnable=135 psVcOptUVW5.eType=1 psVcOptUVW5.nEnable=135 psVcOptUVW6.eType=1 psVcOptUVW6.nEnable=135 psVcOptUVW7.eType=1 psVcOptUVW7.nEnable=135 sVcOptBin.eType=1 sVcOptBin.nEnable=135 sVcOptBoneInd.eType=10 sVcOptBoneInd.nEnable=15 sVcOptBoneWt.eType=1 sVcOptBoneWt.nEnable=15 sVcOptCol.eType=5 sVcOptCol.nEnable=15 sVcOptNor.eType=1 sVcOptNor.nEnable=135 sVcOptPos.eType=1 sVcOptPos.nEnable=135 sVcOptTan.eType=1 sVcOptTan.nEnable=135";
+	if ( `checkBox -q -value lwPodExportMatricesCheckBox` ){
+		$option += " exportMatrices=1";
+	}else{
+		$option += " exportMatrices=0";
+	}
+	int $exportMode;
+	if ( `radioButtonGrp -q -select lwPodExportModeRadioBtnGrp` == 1 ){
+		$exportMode = 5;
+		lwHideIphoneBoundary();
+		checkBox -e -value 0 lwShowIphoneResBoundaryCheckBox;
+	}else{
+		$exportMode = 6;
+	}
+	if ( size($filepath) != 0 ){
+		PVRGeoPOD_Execute($filepath, 
+		$option,
+		$exportMode, "", "", "");
+	}
+	
+	int $fid = 0;
+	int $frameMin = `playbackOptions -q -minTime`;
+	int $frameMax = `playbackOptions -q -maxTime`;
+	string $transNodes[];
+	if ( $exportMode == 5 ){
+		$transNodes = lsType("transform");
+	}else{
+		$transNodes = `ls -sl`;
+	}
+	
+	string $transNode;
+	int $channelNum = 0;
+	
+	for ( $transNode in $transNodes ){
+		if ( $transNode == "<done>" ){
+			break;
+		}
+		int $find = false;
+		string $placement[];
+		if ( lwIsAnimationExists($transNode, "alpha") || lwIsAnimationExists($transNode, "visibility") ){
+			$find = true;
+		}
+		
+		string $shape = getObjectShapeNode($transNode);
+		if ( `size($shape)` > 0 ){
+			string $sg[] = `listConnections -shapes on -type shadingEngine $shape`;
+			if ( `size($sg)` > 0 ){
+				string $lambert[] = `listConnections -source true -destination false -exactType true -type "lambert" $sg[0]`;
+				if ( `size($lambert)` > 0 ){
+					string $fileNames[] = `listConnections -source true -destination false -type file $lambert[0]`;
+					if ( `size($fileNames)` > 0 ){
+						$placement = `listConnections -source true -destination false -type place2dTexture $fileNames[0]`;
+						if ( `size($placement)` > 0 ){
+							if ( lwIsAnimationExists($placement[0], "offsetU") || lwIsAnimationExists($placement[0], "offsetV") ){
+								$find = true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if ( !$find ){
+			continue;
+		}
+		if ( $fid == 0 ){
+			$filepath += ".ext";
+			$fid = `fopen $filepath "w"`;
+			int $frameNum = $frameMax-$frameMin+1;
+			fwrite $fid $frameNum;
+		}
+		
+		fwrite $fid (`sizeBytes($transNode)`);
+		fwrite $fid $transNode;
+		
+		lwWriteLinerChannel($fid, $transNode, "alpha", $LW_ALPHA_CHANNEL, $frameMin, $frameMax);
+		lwWriteStepChannel($fid, $transNode, "visibility", $LW_VISIBILITY_CHANNEL, $frameMin, $frameMax);
+		if ( `size($placement)` > 0 ){
+			if ( lwIsAnimationExists($transNode, "currentFrame") ){
+				lwWriteStepChannel($fid, $placement[0], "offsetU", $LW_OFFSET_U_CHANNEL, $frameMin, $frameMax);
+				lwWriteStepChannel($fid, $placement[0], "offsetV", $LW_OFFSET_V_CHANNEL, $frameMin, $frameMax);
+			}else{
+				lwWriteLinerChannel($fid, $placement[0], "offsetU", $LW_OFFSET_U_CHANNEL, $frameMin, $frameMax);
+				lwWriteLinerChannel($fid, $placement[0], "offsetV", $LW_OFFSET_V_CHANNEL, $frameMin, $frameMax);
+			}
+		}
+		fwrite $fid -1;
+	}
+	if ( $fid != 0 ){
+		fclose $fid;
+	}
+}
+
+global proc lwCreateFilp(){
+	string $files[] = `ls -sl`;
+	string $file;
+	for ($file in $files){
+		if (!`attributeExists "outSizeX" $file`) {
+			warning "please select file node(s)";
+			continue;
+		}
+		float $x = `getAttr ($file+".outSizeX")`;
+		float $y = `getAttr ($file+".outSizeY")`;
+		string $polyName[] = `polyPlane -w $x -h $y -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 1 -name ($file+"_p")`;
+		if( `objExists ($file+"_sd")` ){
+			error "one file node only create flip once, please create a new file node";
+			return;
+		}else{
+			shadingNode -asShader lambert -name ($file+"_sd");
+			sets -renderable true -noSurfaceShader true -empty -name ($file+"_sg");
+			connectAttr -f ($file+"_sd.outColor") ($file+"_sg.surfaceShader");
+			connectAttr -f ($file+".outColor") ($file+"_sd.color");
+			connectAttr -f ($file+".outTransparency") ($file+"_sd.transparency");
+		}
+		select -r $polyName[0];
+		hyperShade -assign ($file+"_sd");
+		
+		lwAddAlphaChannel($polyName[0], $file);
+		
+		addAttr -ln "flipWidth" -at short -min 0 -max 1024 -dv 64 $polyName[0];
+		setAttr -e -keyable true ($polyName[0]+".flipWidth");
+		addAttr -ln "flipHeight" -at short -min 0 -max 1024 -dv 64 $polyName[0];
+		setAttr -e -keyable true ($polyName[0]+".flipHeight");
+		addAttr -ln "startFrame" -at short -min 0 -max 512 -dv 0 $polyName[0];
+		setAttr -e -keyable true ($polyName[0]+".startFrame");
+		addAttr -ln "frameCount" -at short -min 1 -max 512 -dv 1 $polyName[0];
+		setAttr -e -keyable true ($polyName[0]+".frameCount");
+		addAttr -ln "currentFrame" -at short -min 0 -max 512 -dv 0 $polyName[0];
+		setAttr -e -keyable true ($polyName[0]+".currentFrame");
+	}
+}
+
+global proc lwResizeFilp(){
+	string $objs[] = `ls -sl`;
+	string $obj;
+	string $fileName = "error";
+	for ($obj in $objs){
+		if ( `nodeType $obj` == "transform" ){
+			if ( `attributeExists "flipWidth" $obj`
+			&& `attributeExists "flipHeight" $obj` ){
+				string $shape = getObjectShapeNode($obj);
+				string $sg[] = `listConnections -shapes on -type shadingEngine $shape`;
+				string $lambert[] = `listConnections -source true -destination false -exactType true -type "lambert" $sg[0]`;
+				string $fileNames[] = `listConnections -source true -destination false -type file $lambert[0]`;
+				string $fileName = $fileNames[0];
+				string $placeTexture[] = `listConnections -source true -destination false -type place2dTexture $fileName`;
+				
+				float $fileW = `getAttr ($fileName+".outSizeX")`;
+				float $fileH = `getAttr ($fileName+".outSizeY")`;
+				int $numVertex[] = `polyEvaluate -vertex $obj`;
+				if ( $numVertex[0] != 4 ){
+					error "must select quad object\n";
+					continue;
+				}
+				int $i;
+				float $dPos[3];
+				$dPos[0] = 0;
+				$dPos[1] = 0;
+				$dPos[2] = 0;
+				
+				float $u1 = 0;
+				float $u2 = `getAttr ($obj+".flipWidth")`/$fileW;
+				float $v1 = 0;
+				float $v2 = `getAttr ($obj+".flipHeight")`/$fileH;
+				$v1 = 1 - $v1;
+				$v2 = 1 - $v2;
+				select -r ($obj+".map[0]");
+				polyEditUV -r false -u $u1 -v $v1;
+				select -r ($obj+".map[1]");
+				polyEditUV -r false -u $u2 -v $v1;
+				select -r ($obj+".map[2]");
+				polyEditUV -r false -u $u1 -v $v2;
+				select -r ($obj+".map[3]");
+				polyEditUV -r false -u $u2 -v $v2;
+				for ( $i = 0; $i < 4; ++$i ){
+					float $uv[] = `getAttr ($obj+".uv["+ $i +"]")`;
+					float $pos[] = `pointPosition -w ($obj+".vtx["+ $i +"]")`;
+					select -r ($obj+".vtx["+ $i +"]");
+					float $x = $uv[0]*$fileW;
+					float $y = $uv[1]*$fileH;
+					move ($x) ($y) 0;
+					$dPos[0] += $x - $pos[0];
+					$dPos[1] += $y - $pos[1];
+					$dPos[2] += $pos[2];
+				}
+				select -r $obj;
+				move -r (-$dPos[0]/$numVertex[0]) (-$dPos[1]/$numVertex[0]) ($dPos[2]/$numVertex[0]);
+				
+				CenterPivot;
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -jointOrient;
+				
+				//lwAddAlphaChannel($obj, $fileName);
+				string $con[] = `listConnections -d off -s on ($placeTexture[0]+".offsetU")`;
+				if ( size($con) == 0 ){
+					string $exp = "int $texW = _FILE_.outSizeX;\r\nint $texH = _FILE_.outSizeY;\r\n\r\nint $w = _POLY_.flipWidth;\r\nint $h = _POLY_.flipHeight;\r\n\r\nint $x = 0;\r\nint $y = 0;\r\n\r\nint $currFrame = (_POLY_.currentFrame % _POLY_.frameCount) + _POLY_.startFrame;\r\n\r\nint $i;\r\nfor ( $i = 0; $i < $currFrame; ++$i ){\r\n\t$x += $w;\r\n\tif ( $x+$w > $texW ){\r\n\t\t$x = 0;\r\n\t\t$y += $h;\r\n\t\tif ( $y + $h > $texH ){\r\n\t\t\t$y = 0;\r\n\t\t}\r\n\t}\r\n}\r\n\r\n_PLACE_TEX_.offsetU = $x/(float)$texW;\r\n_PLACE_TEX_.offsetV = -$y/(float)$texH;";
+					$exp = substituteAllString($exp, "_FILE_", $fileName);
+					$exp = substituteAllString($exp, "_POLY_", $obj);
+					$exp = substituteAllString($exp, "_PLACE_TEX_", $placeTexture[0]);
+					expression -s $exp -o $placeTexture[0] -ae 1 -uc all ;
+				}
+			}
+		}
+	}
+}
+
+if ( `window -exists "dhToolsWnd"` ){
+	deleteUI -window "dhToolsWnd";
+}
+window -width 250 -title "dungeon hero tools" "dhToolsWnd";
+columnLayout -adjustableColumn true;
+	frameLayout -label "Export" -labelAlign "top"
+                -borderStyle "etchedOut"
+                -marginHeight 3
+                -marginWidth 10
+                ;
+        columnLayout -adjustableColumn true -rowSpacing 5;
+        	radioButtonGrp 	-numberOfRadioButtons 2 -select 1
+    					-labelArray2 "All" "Selection"
+    					lwPodExportModeRadioBtnGrp;
+    		checkBox 	-label "Export matrices"
+    					-align "left"
+						lwPodExportMatricesCheckBox;
+			button 	-label "Export"
+					-height 25
+					-width 100
+					-c "lwExport"
+					;
+			setParent ..;
+		setParent ..;
+	rowLayout 	-numberOfColumns 3
+				-columnWidth3 10 120 120
+				-columnAlign3 "center" "center" "center"
+				;
+		text -width 20 -label "" -visible false;
+	    button 	-label "Create sprite"
+	    		-c "lwCreateSpriteFromFileNode"
+	    		-annotation "select file node(s) to create proper size sprite"
+	    		-height 30
+	    		-width 100
+	    		;
+	    button 	-label "Resize sprite"
+	    		-c "lwResizeSprite"
+	    		-annotation "select file node and 4 point plane"
+	    		-height 30
+	    		-width 100
+	    		;
+	    setParent..;
+	separator;
+	rowLayout 	-numberOfColumns 3
+				-columnWidth3 10 120 120
+				-columnAlign3 "center" "center" "center"
+				;
+		text -width 20 -label "" -visible false;
+	    button 	-label "Create flip"
+	    		-c "lwCreateFilp"
+	    		-annotation "select file node(s) to create proper size sprite"
+	    		-height 30
+	    		-width 100
+	    		;
+	    button 	-label "Resize flip"
+	    		-c "lwResizeFilp"
+	    		-annotation "select file node and 4 point plane"
+	    		-height 30
+	    		-width 100
+	    		;
+	    setParent..;
+	separator;
+    button 	-label "Adjust persp camera's clip plane"
+    		-c "lwAdjPersp"
+    		-annotation "Adjust the persp camera's near and far clip plane"
+    		-height 30
+    		;
+   	separator;
+    checkBox 	-label "Show iphone resolution boundary"
+    			-onCommand "lwShowIphoneBoundary"
+    			-offCommand "lwHideIphoneBoundary"
+    			lwShowIphoneResBoundaryCheckBox;
+showWindow;
+
+window -e -width 250 "dhToolsWnd";
