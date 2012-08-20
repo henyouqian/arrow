@@ -25,7 +25,11 @@ private:
 	FluitEmitter* _pEmitter;
 	Bow* _pBow;
 	lw::Sprite* _pLine;
+    
     lw::Sprite* _pSptBG;
+    lw::Sprite* _pSptEyeBG;
+    lw::Sprite* _pSptEye;
+    float _lookatX, _lookatY;
 };
 
 extern TaskArrow taskArrow;

@@ -1,7 +1,7 @@
 #ifndef __LW_DATABASE_H__
 #define __LW_DATABASE_H__
 
-#include "sqlite/sqlite3.h"
+#include <sqlite3.h>
 
 namespace lw{
 

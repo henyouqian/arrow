@@ -40,6 +40,15 @@ void TaskArrow::vBegin(){
     
     _pSptBG = lw::Sprite::create("newton.png");
     _pSptBG->setUV(0, 0, 640, 960);
+    
+    _pSptEyeBG = lw::Sprite::create("newton.png");
+    _pSptEyeBG->setUV(0, 963, 150, 44);
+    
+    _pSptEye = lw::Sprite::create("newton.png");
+    _pSptEye->setUV(236, 972, 100, 20);
+    
+    _lookatX = 140;
+    _lookatY = 312;
 }
 
 void TaskArrow::vEnd(){
@@ -65,6 +74,8 @@ void TaskArrow::vEnd(){
 	delete _pBow;
 	delete _pLine;
     delete _pSptBG;
+    delete _pSptEyeBG;
+    delete _pSptEye;
 }
 
 void TaskArrow::vMain(float dt){
@@ -113,7 +124,31 @@ void TaskArrow::vDraw(float dt){
 	glDisable(GL_LIGHTING);
 	glDepthMask(GL_FALSE);
 	
-    _pSptBG->collect(0, 0, 320, 480);
+    {
+        _pSptEyeBG->collect(105, 298, 75, 22);
+        float x = 118.f;
+        float y = 306.f;
+        float dx = (_lookatX-142.f)*.02f;
+        float dy = (_lookatY-312.f)*.02f;
+        float lim = 3.f;
+        if ( dx < 0 ){
+            dx = std::max(dx, -lim);
+        }else{
+            dx = std::min(dx, lim);
+        }
+        if ( dy < 0 ){
+            dy = std::max(dy, -lim);
+        }else{
+            dy = std::min(dy, lim);
+        }
+        x += dx;
+        y += dy;
+        
+        _pSptEye->collect(x, y, 50, 10);
+        _pSptBG->collect(0, 0, 320, 480);
+    }
+    
+    
 	{
 		std::list<Arrow*>::iterator it = _arrows.begin();
 		std::list<Arrow*>::iterator itEnd = _arrows.end();
@@ -145,6 +180,12 @@ bool TaskArrow::vOnTouchEvent(std::vector<lw::TouchEvent>& events){
 	for ( ; it != itEnd; ++it ){
 		if ( it->updated ){
 			_pBow->onGestureUpdate(*it);
+            
+            const lw::TouchEvent& evt = it->evt;
+            if ( evt.type == lw::TouchEvent::TOUCH || evt.type == lw::TouchEvent::MOVE ){
+                _lookatX = evt.x;
+                _lookatY = evt.y;
+            }
 		}
 	}
 	_gestureMgr.main();

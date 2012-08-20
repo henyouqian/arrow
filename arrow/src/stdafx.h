@@ -45,7 +45,7 @@
 
 #include "Box2D.h"
 
-#include "sqlite/sqlite3.h"
+#include <sqlite3.h>
 
 extern sqlite3* g_pDataDb;
 extern sqlite3* g_pSaveDb;

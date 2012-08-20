@@ -188,6 +188,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0C6A9501509E5C800716C4E /* libsqlite3.dylib in Frameworks */,
 				D0120A9615DFB37D00CE68F2 /* liblw.a in Frameworks */,
 				D0D8E8D51532167000652697 /* AVFoundation.framework in Frameworks */,
 				D0E6CA841527639800101044 /* StoreKit.framework in Frameworks */,
@@ -196,7 +197,6 @@
 				D0C6A9581509E6B100716C4E /* AudioToolbox.framework in Frameworks */,
 				D0C6A9541509E61200716C4E /* CoreLocation.framework in Frameworks */,
 				D0C6A9531509E5F200716C4E /* MapKit.framework in Frameworks */,
-				D0C6A9501509E5C800716C4E /* libsqlite3.dylib in Frameworks */,
 				D0C6A9511509E5C800716C4E /* libz.dylib in Frameworks */,
 				D0C6A94F1509E57C00716C4E /* SystemConfiguration.framework in Frameworks */,
 				D0C6A94D1509E56900716C4E /* AddressBook.framework in Frameworks */,
