@@ -111,7 +111,8 @@ void TargetFluit::checkArrow(Arrow* pArrow){
 		pFixture = pFixture->GetNext();
 	}
 	float hitDist = dist - maxDist;
-	const float OVER_DIST = 0.45f;
+	//const float OVER_DIST = 0.45f;
+    const float OVER_DIST = cml::random_float(0.3f, 0.45f);
 	if ( maxDist > OVER_DIST && maxDist < (ARROW_LENGTH+ARROW_SPEED)*B2_SCALE ){
 		pArrow->die();
 
@@ -131,11 +132,26 @@ void TargetFluit::checkArrow(Arrow* pArrow){
 		m *= m1;
 		_localTrans.push_back(m);
 
-		//vForward.x *= 0.5f; vForward.y *= 0.5f;
+		//vForward.x *= 2.5f; vForward.y *= 2.5f;
 		v = _pBody->GetLocalPoint(v);
-		v.x *= 0.5f; v.y *= 0.2f;
+		v.x *= 0.5f; v.y *= 0.5f;   //rotate slower
 		v = _pBody->GetWorldPoint(v);
-		_pBody->ApplyLinearImpulse(vForward, v);
+        
+        cml::Vector2 v2;
+        pArrow->getSpeed(v2);
+        b2Vec2 velArrow(v2[0], v2[1]);
+        b2Vec2 velSelf(_pBody->GetLinearVelocity());
+        b2Vec2 dVel = velArrow - velSelf;
+        b2Vec2 imp = dVel;
+        dVel.Normalize();
+        velArrow.Normalize();
+        float f = b2Dot(dVel, velArrow);
+        //lwinfo(velArrow.y << "  " << velSelf.y);
+        f *= 0.07f;
+        imp.x *= f;
+        imp.y *= f;
+        lwinfo(imp.y);
+		_pBody->ApplyLinearImpulse(imp, v);
 
 		g_pSndHit->play();
 	}
@@ -190,6 +206,12 @@ void TargetFluit::checkDart(Dart* pDart){
 
 		g_pSndHit->play();
 	}
+}
+
+void TargetFluit::getScreenPos(float& x, float& y){
+    const b2Vec2& pos = _pBody->GetPosition();
+    x = pos.x/B2_SCALE+160.f;
+    y = -pos.y/B2_SCALE+480.f;
 }
 
 FluitEmitter::FluitEmitter(std::list<Target*>& targets, b2World* pWorld):_targets(targets), _pWorld(pWorld){

@@ -30,6 +30,12 @@ private:
     lw::Sprite* _pSptEyeBG;
     lw::Sprite* _pSptEye;
     float _lookatX, _lookatY;
+    lw::Sprite* _pEyelid;
+    int _blinkFrame;
+    int _openFrame;
+    bool _twice;
+    
+    lw::Sprite* _upArrow;
 };
 
 extern TaskArrow taskArrow;

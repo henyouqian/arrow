@@ -28,6 +28,7 @@ public:
 	float getScore(){
 		return _score;
 	}
+    void getSpeed(cml::Vector2& speed);
 
 private:
 	cml::Vector2 _origin;

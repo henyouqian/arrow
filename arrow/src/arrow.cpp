@@ -67,3 +67,9 @@ void Arrow::makeRayCastInput(b2RayCastInput& input){
 float Arrow::getDist(){
 	return _dist*B2_SCALE;
 }
+
+void Arrow::getSpeed(cml::Vector2& speed){
+    speed[0] = 0.f;
+	speed[1] = ARROW_SPEED;
+	speed = cml::rotate_vector_2D(speed, _angle);
+}

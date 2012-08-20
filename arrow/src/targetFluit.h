@@ -17,6 +17,7 @@ public:
 	virtual void collect();
 	virtual void checkArrow(Arrow* pArrow);
 	virtual void checkDart(Dart* pDart);
+    virtual void getScreenPos(float& x, float& y);
 	void setScore(float score){
 		_score = score;
 	}

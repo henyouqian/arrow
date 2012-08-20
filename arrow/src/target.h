@@ -15,6 +15,7 @@ public:
 	virtual void collect() = 0;
 	virtual void checkArrow(Arrow* pArrow){}
 	virtual void checkDart(Dart* pDart){}
+    virtual void getScreenPos(float& x, float& y){x = 0; y = 0;}
 
 protected:
 	
